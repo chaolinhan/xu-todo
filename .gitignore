@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Production output
+dist/
+
+# Tool caches and logs
+*.log
+.vite/
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Operating system and editor files
+.DS_Store
+.idea/
+.vscode/
+
+.cache/
+release/
+docs/research/*-evidence.json
+
+# GitHub Pages output and local REA setup diagnostics
+dist-pages/
+/rea-*
