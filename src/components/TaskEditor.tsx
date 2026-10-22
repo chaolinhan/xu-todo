@@ -1,10 +1,12 @@
-import { Bell, Calendar, Flag, Folder, Repeat2, Tag, Trash2, X } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, Flag, Folder, Repeat2, Tag, Trash2, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import type { AppData, Priority, RecurrenceUnit, Task, TaskDraft } from '../types'
 import { createRecurrenceRule } from '../lib/recurrence'
 import { DateTimePicker } from './DateTimePicker'
 import { PrioritySelect } from './PrioritySelect'
 import { Select } from './Select'
+import { useDraft } from '../hooks/useDraft'
+import { useDialog } from '../hooks/useDialog'
 import { fromDateTimeLocal, toDateTimeLocal } from '../lib/task-utils'
 
 interface TaskEditorProps {
@@ -13,10 +15,18 @@ interface TaskEditorProps {
   defaultProjectId: string
   onClose: () => void
   onSave: (draft: TaskDraft) => void
-  onDelete?: () => void
+  onDelete?: () => boolean | void
 }
 
 type RecurrenceChoice = 'none' | RecurrenceUnit | 'custom'
+
+interface EditorDraft {
+  title:string; description:string; dueAt:string; reminderAt:string; priority:Priority; projectId:string; sectionId:string; labelIds:string[]; recurrenceChoice:RecurrenceChoice; customInterval:string; customUnit:RecurrenceUnit; reminderLinked:boolean
+}
+function validEditorDraft(value:unknown):value is EditorDraft {
+  const v=value as EditorDraft|null
+  return Boolean(v&&['title','description','dueAt','reminderAt','projectId','sectionId','customInterval'].every(key=>typeof v[key as keyof EditorDraft]==='string')&&[1,2,3,4].includes(v.priority)&&Array.isArray(v.labelIds)&&v.labelIds.every(id=>typeof id==='string')&&['none','day','weekday','week','month','year','custom'].includes(v.recurrenceChoice)&&['day','weekday','week','month','year'].includes(v.customUnit)&&typeof v.reminderLinked==='boolean'&&[v.dueAt,v.reminderAt].every(date=>!date||Number.isFinite(new Date(date).getTime())))
+}
 
 function recurrenceChoiceFor(task?: Task): RecurrenceChoice {
   if (!task?.recurrence) return 'none'
@@ -24,19 +34,13 @@ function recurrenceChoiceFor(task?: Task): RecurrenceChoice {
 }
 
 export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDelete }: TaskEditorProps) {
-  const [title, setTitle] = useState(task?.title ?? '')
-  const [description, setDescription] = useState(task?.description ?? '')
-  const [dueAt, setDueAt] = useState(toDateTimeLocal(task?.dueAt))
-  const [reminderAt, setReminderAt] = useState(toDateTimeLocal(task?.reminderAt))
-  const [priority, setPriority] = useState<Priority>(task?.priority ?? 4)
-  const [projectId, setProjectId] = useState(task?.projectId ?? defaultProjectId)
-  const [sectionId,setSectionId] = useState(task?.sectionId ?? '')
-  const [labelIds, setLabelIds] = useState<string[]>(task?.labelIds ?? [])
-  const [recurrenceChoice, setRecurrenceChoice] = useState<RecurrenceChoice>(recurrenceChoiceFor(task))
-  const [customInterval, setCustomInterval] = useState(String(task?.recurrence?.interval ?? 2))
-  const [customUnit, setCustomUnit] = useState<RecurrenceUnit>(task?.recurrence?.unit ?? 'week')
-  const titleRef = useRef<HTMLInputElement>(null)
-  const reminderLinkedRef = useRef(!task || task.reminderAt === task.dueAt)
+  const initial:EditorDraft={title:task?.title??'',description:task?.description??'',dueAt:toDateTimeLocal(task?.dueAt),reminderAt:toDateTimeLocal(task?.reminderAt),priority:task?.priority??4,projectId:task?.projectId??defaultProjectId,sectionId:task?.sectionId??'',labelIds:task?.labelIds??[],recurrenceChoice:recurrenceChoiceFor(task),customInterval:String(task?.recurrence?.interval??2),customUnit:task?.recurrence?.unit??'week',reminderLinked:!task||task.reminderAt===task.dueAt}
+  const saved=useDraft(`task:${task?.id??'new'}`,initial,validEditorDraft,JSON.stringify(initial))
+  const {title,description,dueAt,reminderAt,priority,projectId,sectionId,labelIds,recurrenceChoice,customInterval,customUnit}=saved.value
+  const field=<K extends keyof EditorDraft>(name:K,value:EditorDraft[K])=>saved.update(current=>({...current,[name]:value}))
+  const titleRef=useRef<HTMLInputElement>(null)
+  const panel=useDialog(onClose)
+  const [advanced,setAdvanced]=useState(recurrenceChoice!=='none')
 
   const recurrence = useMemo(() => {
     if (recurrenceChoice === 'none') return undefined
@@ -47,7 +51,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
     if (!Number.isInteger(interval) || interval < 1 || interval > 365) return undefined
     return createRecurrenceRule(unit, interval, due)
   }, [customInterval, customUnit, dueAt, recurrenceChoice])
-  const canSave = title.trim().length > 0 && (recurrenceChoice === 'none' || Boolean(recurrence))
+  const canSave = title.trim().length > 0 && title.trim().length <= 240 && (recurrenceChoice === 'none' || Boolean(recurrence))
   const modeTitle = task ? '编辑任务' : '添加任务'
   const submitLabel = task ? '保存更改' : '添加任务'
   const selectedLabels = useMemo(() => new Set(labelIds), [labelIds])
@@ -67,32 +71,18 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
       priority,
       projectId,
       sectionId:data.sections?.some(s=>s.id===sectionId&&s.projectId===projectId)?sectionId:undefined,
-      labelIds,
+      labelIds:labelIds.filter(id=>data.labels.some(label=>label.id===id)),
     })
+    saved.clear()
   }
 
-  const toggleLabel = (labelId: string) => {
-    setLabelIds((current) =>
-      current.includes(labelId) ? current.filter((id) => id !== labelId) : [...current, labelId],
-    )
-  }
-
-  const changeDueAt = (value: string) => {
-    setDueAt(value)
-    if (reminderLinkedRef.current) {
-      setReminderAt(value)
-      reminderLinkedRef.current = true
-    }
-  }
-
-  const changeReminderAt = (value: string) => {
-    setReminderAt(value)
-    reminderLinkedRef.current = value === dueAt
-  }
+  const toggleLabel=(id:string)=>field('labelIds',labelIds.includes(id)?labelIds.filter(item=>item!==id):[...labelIds,id])
+  const changeDueAt=(value:string)=>saved.update(current=>({...current,dueAt:value,...(current.reminderLinked?{reminderAt:value}:{})}))
+  const changeReminderAt=(value:string)=>saved.update(current=>({...current,reminderAt:value,reminderLinked:value===current.dueAt}))
 
   return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="task-editor dialog-card" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
+    <div className="dialog-backdrop editor-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section ref={panel} className="task-editor task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
         <header className="dialog-header">
           <div>
             <span className="eyebrow">任务详情</span>
@@ -104,28 +94,31 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
         </header>
 
         <form onSubmit={submit}>
+          <div className="editor-scroll">
+          {(saved.restored||saved.conflict)&&<div className="draft-notice"><span>{saved.conflict?'任务已变更，有一份旧草稿':'已恢复上次草稿'}</span>{saved.conflict&&<button type="button" onClick={saved.restore}>恢复旧草稿</button>}<button type="button" onClick={saved.discard}>丢弃草稿</button></div>}
+          {saved.error&&<p className="draft-error" role="alert">{saved.error}</p>}
           <div className="editor-main-fields">
             <input
               ref={titleRef}
               aria-label="编辑任务名称"
               className="title-input"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => field('title',event.target.value)}
               placeholder="准备做什么？"
-              autoFocus
-              maxLength={180}
+              maxLength={240}
             />
             <textarea
               aria-label="编辑任务描述"
               className="description-input"
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => field('description',event.target.value)}
               placeholder="补充一点细节……"
-              rows={3}
+              rows={2}
               maxLength={1000}
             />
           </div>
 
+          {title.trim().length>240&&<p className="draft-error" role="alert">任务名称不能超过240字，请缩短后保存。</p>}
           <div className="editor-grid">
             <div className="editor-field">
               <span><Calendar size={16} /> 截止时间</span>
@@ -138,17 +131,19 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
             </div>
             <div className="editor-field">
               <span><Folder size={16} /> 所属项目</span>
-              <Select label="所属项目" value={projectId} onChange={value => {setProjectId(value);setSectionId('')}} options={[{value:'inbox',label:'收件箱'},...data.projects.map(project=>({value:project.id,label:project.name}))]} />
+              <Select label="所属项目" value={projectId} onChange={value => saved.update(current=>({...current,projectId:value,sectionId:''}))} options={[{value:'inbox',label:'收件箱'},...data.projects.map(project=>({value:project.id,label:project.name}))]} />
             </div>
-            <div className="editor-field"><span><Folder size={16}/>所属版块</span><Select label="所属版块" value={sectionId} onChange={setSectionId} options={[{value:'',label:'未分组'},...(data.sections??[]).filter(s=>s.projectId===projectId).map(s=>({value:s.id,label:s.name}))]} /></div>
+            <div className="editor-field"><span><Folder size={16}/>所属版块</span><Select label="所属版块" value={sectionId} onChange={value=>field('sectionId',value)} options={[{value:'',label:'未分组'},...(data.sections??[]).filter(s=>s.projectId===projectId).map(s=>({value:s.id,label:s.name}))]} /></div>
             <div className="editor-field priority-field">
               <span><Flag size={16} /> 优先级</span>
-              <PrioritySelect value={priority} onChange={setPriority} />
+              <PrioritySelect value={priority} onChange={value=>field('priority',value)} />
             </div>
-            <fieldset className="editor-field recurrence-field">
+            </div>
+          <button className="advanced-toggle" type="button" aria-expanded={advanced} onClick={()=>setAdvanced(!advanced)}><Repeat2 size={15}/>重复与高级设置<ChevronDown size={15}/></button>
+          {advanced&&<fieldset className="editor-field recurrence-field">
               <legend><Repeat2 size={16} /> 重复</legend>
               <div className="recurrence-controls">
-                <Select label="重复规则" value={recurrenceChoice} onChange={value=>setRecurrenceChoice(value as RecurrenceChoice)} options={[{value:'none',label:'不重复'},{value:'day',label:'每天'},{value:'weekday',label:'每个工作日'},{value:'week',label:'每周'},{value:'month',label:'每月'},{value:'year',label:'每年'},{value:'custom',label:'自定义间隔'}]} />
+                <Select label="重复规则" value={recurrenceChoice} onChange={value=>field('recurrenceChoice',value as RecurrenceChoice)} options={[{value:'none',label:'不重复'},{value:'day',label:'每天'},{value:'weekday',label:'每个工作日'},{value:'week',label:'每周'},{value:'month',label:'每月'},{value:'year',label:'每年'},{value:'custom',label:'自定义间隔'}]} />
                 {recurrenceChoice === 'custom' && (
                   <span className="custom-recurrence">
                     <span>每</span>
@@ -159,17 +154,16 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
                       max="365"
                       inputMode="numeric"
                       value={customInterval}
-                      onChange={(event) => setCustomInterval(event.target.value)}
+                      onChange={(event) => field('customInterval',event.target.value)}
                     />
-                    <Select label="重复单位" value={customUnit} onChange={value=>setCustomUnit(value as RecurrenceUnit)} options={[{value:'day',label:'天'},{value:'week',label:'周'},{value:'month',label:'个月'}]} />
+                    <Select label="重复单位" value={customUnit} onChange={value=>field('customUnit',value as RecurrenceUnit)} options={[{value:'day',label:'天'},{value:'week',label:'周'},{value:'month',label:'个月'}]} />
                   </span>
                 )}
               </div>
-              <small className={`field-hint ${recurrenceChoice !== 'none' && !dueAt ? 'is-error' : ''}`}>
-                {recurrenceChoice !== 'none' && !dueAt ? '重复任务需要截止时间' : '完成后生成下一次任务'}
+              <small className={`field-hint ${recurrenceChoice !== 'none' && !recurrence ? 'is-error' : ''}`}>
+                {recurrenceChoice !== 'none' && !recurrence ? (!dueAt?'重复任务需要截止时间':'重复间隔需要为1到365之间的整数') : '完成后生成下一次任务'}
               </small>
-            </fieldset>
-          </div>
+            </fieldset>}
 
           <fieldset className="label-picker">
             <legend><Tag size={16} /> 标签</legend>
@@ -180,6 +174,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
                   type="button"
                   key={label.id}
                   className={selectedLabels.has(label.id) ? 'is-selected' : ''}
+                  aria-pressed={selectedLabels.has(label.id)}
                   onClick={() => toggleLabel(label.id)}
                 >
                   <i style={{ backgroundColor: label.color }} />
@@ -189,14 +184,16 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
             </div>
           </fieldset>
 
+          </div>
           <footer className="dialog-actions">
             {task && onDelete ? (
-              <button className="danger-text-button" type="button" onClick={onDelete}>
+              <button className="danger-text-button" type="button" onClick={()=>{if(onDelete?.()===true)saved.clear()}}>
                 <Trash2 size={16} /> 删除
               </button>
             ) : <span />}
+            <span className="editor-draft-status">{saved.error?'草稿未保留':saved.dirty?'草稿已保留':'更改后点击保存'}</span>
             <div>
-              <button className="text-button" type="button" onClick={onClose}>取消</button>
+              <button className="text-button" type="button" onClick={onClose}>稍后继续</button>
               <button className="primary-button" type="submit" disabled={!canSave}>{submitLabel}</button>
             </div>
           </footer>

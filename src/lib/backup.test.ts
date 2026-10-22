@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AppData } from '../types'
+import type { AppData, ViewKey } from '../types'
 import { parseBackup, serializeBackup } from './backup'
 
 const data: AppData = { version: 1, tasks: [], projects: [], labels: [] }
@@ -51,4 +51,12 @@ it('preserves sections, task assignments and per-view layout without accepting m
   const expanded:AppData={...recurringData,sections:[{id:'doing',name:'进行中',projectId:'inbox',createdAt:'2026-10-21'}],preferences:{showCompleted:false,compact:false,sortMode:'date',taskViews:{inbox:{layout:'board',groupBy:'section'}}},tasks:recurringData.tasks.map(t=>({...t,sectionId:'doing'}))}
   expect(parseBackup(serializeBackup(expanded))).toEqual(expanded)
   for(const patch of [{sections:[{id:'x'}]},{preferences:{showCompleted:false,compact:false,sortMode:'date',taskViews:{all:{layout:'table',groupBy:'section'}}}},{tasks:[{...expanded.tasks[0],sectionId:3}]}])expect(()=>parseBackup(serializeBackup({...expanded,...patch} as AppData))).toThrow('不支持')
+})
+
+it('round trips favorites and rejects duplicate or unsupported navigation keys',()=>{
+  const preferences={showCompleted:false,compact:false,sortMode:'date' as const,favoriteViews:['project:work','label:focus','filter:next'] as ViewKey[]}
+  expect(parseBackup(serializeBackup({...data,preferences})).preferences).toEqual(preferences)
+  for(const favoriteViews of [['project:work','project:work'],['settings'],['project:'],[42]]) {
+    expect(()=>parseBackup(serializeBackup({...data,preferences:{...preferences,favoriteViews}} as AppData))).toThrow('不支持')
+  }
 })

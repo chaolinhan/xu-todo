@@ -2,9 +2,10 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, ArrowUpRight } from 'luc
 import { useMemo, useRef } from 'react'
 import { addCalendarDays, calendarDays, calendarRangeLabel, localDateKey, moveCalendarDate, tasksByCalendarDay } from '../lib/calendar'
 import type { AppData, PreviewMode, Task } from '../types'
-import { TaskList } from './TaskList'
+import { TaskList, type TaskSelection } from './TaskList'
 
 interface Props {
+  selection?:TaskSelection
   data: AppData
   date: Date
   now: Date
@@ -24,7 +25,7 @@ const dayName = new Intl.DateTimeFormat('zh-CN', {month:'long',day:'numeric',wee
 const timeName = new Intl.DateTimeFormat('zh-CN', {hour:'2-digit',minute:'2-digit'})
 const weekdays = ['周一','周二','周三','周四','周五','周六','周日']
 
-export function CalendarPreview({data,date,now,mode,showCompleted,sortMode,onDateChange,onModeChange,onAdd,onEdit,onToggle,onShowAll}: Props) {
+export function CalendarPreview({data,date,now,mode,showCompleted,sortMode,onDateChange,onModeChange,onAdd,onEdit,onToggle,onShowAll,selection}: Props) {
   const grid = useRef<HTMLDivElement>(null)
   const days = useMemo(() => calendarDays(date,mode), [date,mode])
   const byDay = useMemo(() => tasksByCalendarDay(data.tasks,showCompleted,sortMode), [data.tasks,showCompleted,sortMode])
@@ -65,7 +66,7 @@ export function CalendarPreview({data,date,now,mode,showCompleted,sortMode,onDat
 
     <section className="preview-day-detail" aria-label="所选日期的任务">
       <header className="preview-detail-heading"><div><span className="preview-detail-icon"><CalendarDays size={18}/></span><div><h3>{dayName.format(date)}{selectedKey===todayKey&&<span>今天</span>}</h3><p>{selectedTasks.filter(t=>!t.completed).length} 个待办{selectedTasks.some(t=>t.completed)?` · ${selectedTasks.filter(t=>t.completed).length} 个已完成`:''}</p></div></div><button type="button" className="preview-add" onClick={() => onAdd(date)} aria-label="为所选日期添加任务"><Plus size={15}/><span>添加任务</span></button></header>
-      {selectedTasks.length ? <TaskList data={data} groups={[{key:'calendar-day',title:sortMode==='priority'?'优先级安排':'时间安排',tasks:selectedTasks}]} query="" onAdd={() => onAdd(date)} onEdit={onEdit} onToggle={onToggle} hideAdd/> : <div className="preview-day-empty"><span className="empty-calendar-line"/><p>这一天还没有安排</p><span>留一点余地，也可以放进一件想做的事。</span><button type="button" onClick={() => onAdd(date)}>添加一个任务<ArrowUpRight size={14}/></button></div>}
+      {selectedTasks.length ? <TaskList data={data} groups={[{key:'calendar-day',title:sortMode==='priority'?'优先级安排':'时间安排',tasks:selectedTasks}]} query="" onAdd={() => onAdd(date)} onEdit={onEdit} onToggle={onToggle} selection={selection} hideAdd/> : <div className="preview-day-empty"><span className="empty-calendar-line"/><p>这一天还没有安排</p><span>留一点余地，也可以放进一件想做的事。</span><button type="button" onClick={() => onAdd(date)}>添加一个任务<ArrowUpRight size={14}/></button></div>}
     </section>
     {undatedCount>0 && <button type="button" className="preview-undated" onClick={onShowAll}><span>还有 {undatedCount} 个未安排日期的任务</span><span>到全部任务查看 <ArrowUpRight size={13}/></span></button>}
   </section>

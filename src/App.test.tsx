@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { appRepository } from './lib/repository'
 vi.mock('./lib/repository', () => ({ appRepository: { load: vi.fn(), save: vi.fn() } }))
-afterEach(() => { cleanup(); vi.clearAllMocks() })
+afterEach(() => { cleanup(); window.localStorage.clear(); vi.clearAllMocks() })
 describe('local data read protection', () => {
   it('does not write starter data when the database cannot be read', async () => {
     vi.mocked(appRepository.load).mockRejectedValueOnce(new Error('存储不可用'))
@@ -102,6 +102,7 @@ it('creates project sections, adds from a board column, then moves and logs the 
   fireEvent.click(screen.getByRole('button',{name:'添加任务到进行中'}))
   fireEvent.change(screen.getByRole('textbox',{name:'任务名称'}),{target:{value:'列内新任务'}})
   fireEvent.click(within(screen.getByRole('dialog',{name:'快速添加任务'})).getByRole('button',{name:'添加任务'}))
+  fireEvent.click(screen.getByLabelText('任务操作：列内新任务'))
   fireEvent.click(screen.getByRole('combobox',{name:'移动任务：列内新任务'}))
   fireEvent.click(screen.getByRole('option',{name:'已排期'}))
   await waitFor(()=>{
@@ -136,4 +137,65 @@ it('does not carry board defaults into a later calendar quick entry',async()=>{
     const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1)
     expect(new Date(added!.dueAt!).getDate()).toBe(tomorrow.getDate())
   })
+})
+
+
+it('resets navigation scroll but preserves list position when closing the task drawer',async()=>{
+  vi.mocked(appRepository.load).mockResolvedValueOnce(structuredClone(stored))
+  vi.mocked(appRepository.save).mockResolvedValue(undefined)
+  const {container}=render(<App/>)
+  await screen.findByRole('heading',{name:'今天',level:1})
+  const scroll=container.querySelector('.workspace-scroll')!
+  scroll.scrollTop=186
+  fireEvent.click(within(screen.getByRole('navigation',{name:'任务视图'})).getByRole('button',{name:'预览'}))
+  expect(scroll.scrollTop).toBe(0)
+  fireEvent.click(within(screen.getByRole('navigation',{name:'任务视图'})).getByRole('button',{name:/全部任务/}))
+  scroll.scrollTop=150
+  fireEvent.click(screen.getByRole('button',{name:'编辑任务：完成验收'}))
+  fireEvent.click(screen.getByRole('button',{name:'关闭'}))
+  expect(scroll.scrollTop).toBe(150)
+})
+
+it('deduplicates tasks in multiple label groups and never bulk edits hidden tasks',async()=>{
+  const initial:AppData={...structuredClone(stored),labels:[{id:'one',name:'专注',color:'#123',createdAt:''},{id:'two',name:'工作',color:'#456',createdAt:''}],tasks:[{...stored.tasks[0],labelIds:['one','two']},{...stored.tasks[0],id:'hidden',title:'不会被修改',completed:true}]}
+  vi.mocked(appRepository.load).mockResolvedValueOnce(initial)
+  vi.mocked(appRepository.save).mockResolvedValue(undefined)
+  render(<App/>)
+  await screen.findByRole('heading',{name:'今天',level:1})
+  fireEvent.click(within(screen.getByRole('navigation',{name:'任务视图'})).getByRole('button',{name:/全部任务/}))
+  fireEvent.click(screen.getByRole('combobox',{name:'任务分组方式'}))
+  fireEvent.click(screen.getByRole('option',{name:'标签'}))
+  fireEvent.click(screen.getByRole('button',{name:'选择任务'}))
+  expect(screen.getAllByRole('checkbox',{name:'选择任务：完成验收'})).toHaveLength(2)
+  fireEvent.click(screen.getByRole('button',{name:'全选当前范围'}))
+  expect(screen.getByText('已选 1 项')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('combobox',{name:'批量设置优先级'}))
+  fireEvent.click(screen.getByRole('option',{name:'优先级 2'}))
+  await waitFor(()=>{
+    const latest=vi.mocked(appRepository.save).mock.calls.at(-1)?.[0]
+    expect(latest?.tasks.find(t=>t.id==='t')?.priority).toBe(2)
+    expect(latest?.tasks.find(t=>t.id==='hidden')?.priority).toBe(1)
+    expect(latest?.activities?.filter(e=>e.detail==='批量操作')).toHaveLength(1)
+  })
+  fireEvent.click(screen.getByRole('button',{name:'撤销'}))
+  await waitFor(()=>expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks.find(t=>t.id==='t')?.priority).toBe(1))
+})
+
+it('previews multiline entry, saves all rows once and can undo their creation',async()=>{
+  vi.mocked(appRepository.load).mockResolvedValueOnce(structuredClone(stored))
+  vi.mocked(appRepository.save).mockResolvedValue(undefined)
+  render(<App/>)
+  await screen.findByRole('heading',{name:'今天',level:1})
+  fireEvent.click(screen.getByRole('button',{name:'添加任务 Q'}))
+  fireEvent.paste(screen.getByRole('textbox',{name:'任务名称'}),{clipboardData:{getData:()=> '明天 第一项 p1\n第二项'}})
+  expect(screen.getByLabelText('批量录入预览')).toBeInTheDocument()
+  expect(screen.getByText('第一项')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'添加 2 项任务'}))
+  await waitFor(()=>{
+    const latest=vi.mocked(appRepository.save).mock.calls.at(-1)?.[0]
+    expect(latest?.tasks).toHaveLength(3)
+    expect(latest?.tasks.find(t=>t.title==='第一项')?.priority).toBe(1)
+  })
+  fireEvent.click(screen.getByRole('button',{name:'撤销'}))
+  await waitFor(()=>expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks).toHaveLength(1))
 })

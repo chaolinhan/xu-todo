@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { TaskEditor } from './TaskEditor'
 import type { Task } from '../types'
-afterEach(cleanup)
+afterEach(()=>{cleanup();window.localStorage.clear()})
 it('keeps an explicitly disabled reminder off when the due date is changed', () => {
   const task: Task = { id:'a', title:'复核方案', description:'', completed:false, createdAt:'2026-10-21T00:00:00Z', updatedAt:'2026-10-21T00:00:00Z', dueAt:'2026-10-22T07:00:00Z', reminderAt:'2026-10-22T07:00:00Z', priority:4, projectId:'inbox', labelIds:[] }
   const save = vi.fn()
@@ -34,4 +34,20 @@ it('saves selected priority and clears a section when switching project',()=>{
   expect(save).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button',{name:'添加任务'}))
   expect(save).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({priority:3,projectId:'p',sectionId:undefined}))
+})
+
+
+it('keeps a drawer draft on Escape and restores it on reopening without saving the task',()=>{
+  const save=vi.fn(),close=vi.fn()
+  const props={data:{version:1 as const,tasks:[],projects:[],labels:[]},defaultProjectId:'inbox',onClose:close,onSave:save}
+  const first=render(<TaskEditor {...props}/>)
+  fireEvent.change(screen.getByRole('textbox',{name:'编辑任务名称'}),{target:{value:'未保存的任务草稿'}})
+  fireEvent.keyDown(screen.getByRole('textbox',{name:'编辑任务名称'}),{key:'Escape'})
+  expect(close).toHaveBeenCalledOnce()
+  expect(save).not.toHaveBeenCalled()
+  first.unmount();render(<TaskEditor {...props}/>)
+  expect(screen.getByRole('textbox',{name:'编辑任务名称'})).toHaveValue('未保存的任务草稿')
+  expect(screen.getByText('已恢复上次草稿')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'丢弃草稿'}))
+  expect(screen.getByRole('textbox',{name:'编辑任务名称'})).toHaveValue('')
 })

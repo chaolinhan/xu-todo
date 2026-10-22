@@ -3,7 +3,13 @@ import { Bell, Calendar, Check, ChevronDown, Pencil, Plus, Repeat2, Tag as TagIc
 import { describeRecurrence } from '../lib/recurrence'
 import type { AppData, Task, TaskGroup } from '../types'
 
+export interface TaskSelection {
+  active:boolean
+  selected:ReadonlySet<string>
+  onSelect:(id:string)=>void
+}
 interface TaskListProps {
+  selection?:TaskSelection
   data: AppData
   groups: TaskGroup[]
   query: string
@@ -34,21 +40,21 @@ function formatTaskDate(iso: string): string {
   return dateFormatter.format(date)
 }
 
-export function TaskRow({ task, data, onEdit, onToggle }: Omit<TaskListProps, 'groups' | 'query' | 'onAdd'> & { task: Task }) {
+export function TaskRow({ task, data, onEdit, onToggle, selection }: Omit<TaskListProps, 'groups' | 'query' | 'onAdd'> & { task: Task }) {
   const project = task.projectId === 'inbox' ? null : data.projects.find((item) => item.id === task.projectId)
   const labels = data.labels.filter((label) => task.labelIds.includes(label.id))
 
   return (
-    <article className={`task-row priority-${task.priority} ${task.completed ? 'is-completed' : ''}`}>
-      <button
+    <article className={`task-row priority-${task.priority} ${task.completed ? 'is-completed' : ''} ${selection?.selected.has(task.id)?'is-selected':''}`}>
+      {selection?.active?<input className="task-select" type="checkbox" aria-label={`选择任务：${task.title}`} checked={selection.selected.has(task.id)} onChange={()=>selection.onSelect(task.id)}/>:<button
         className="task-check"
         type="button"
         onClick={() => onToggle(task)}
         aria-label={task.completed ? `恢复任务：${task.title}` : `完成任务：${task.title}`}
       >
         <Check size={14} />
-      </button>
-      <button className="task-content" type="button" onClick={() => onEdit(task)}>
+      </button>}
+      <button className="task-content" type="button" onClick={() => selection?.active?selection.onSelect(task.id):onEdit(task)}>
         <span className="task-title">{task.title}</span>
         {task.description && <span className="task-description">{task.description}</span>}
         <span className="task-meta">
@@ -84,12 +90,12 @@ export function TaskRow({ task, data, onEdit, onToggle }: Omit<TaskListProps, 'g
           ))}
         </span>
       </button>
-      <button className="row-edit icon-button" type="button" aria-label={`编辑任务：${task.title}`} onClick={() => onEdit(task)}><Pencil size={15} /></button>
+      {!selection?.active&&<button className="row-edit icon-button" type="button" aria-label={`编辑任务：${task.title}`} onClick={() => onEdit(task)}><Pencil size={15} /></button>}
     </article>
   )
 }
 
-export function TaskList({ data, groups, query, onAdd, onEdit, onToggle, hideAdd, onGroupAdd }: TaskListProps) {
+export function TaskList({ data, groups, query, onAdd, onEdit, onToggle, hideAdd, onGroupAdd, selection }: TaskListProps) {
   const [collapsed, setCollapsed] = useState<string[]>([])
   if (groups.length === 0) {
     return (
@@ -115,7 +121,7 @@ export function TaskList({ data, groups, query, onAdd, onEdit, onToggle, hideAdd
           </button>{onGroupAdd&&group.target&&<button className="icon-button group-add-button" type="button" aria-label={`添加任务到${group.title}`} onClick={()=>onGroupAdd(group)}><Plus size={15}/></button>}</div>
           {!collapsed.includes(group.key) && <div className="task-list">
             {group.tasks.map((task) => (
-              <TaskRow key={task.id} task={task} data={data} onEdit={onEdit} onToggle={onToggle} />
+              <TaskRow key={task.id} task={task} data={data} onEdit={onEdit} onToggle={onToggle} selection={selection} />
             ))}
           </div>}
         </section>

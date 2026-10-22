@@ -16,6 +16,7 @@ it('supports drag/drop and the equivalent keyboard/touch move control',()=>{
   fireEvent.dragOver(screen.getByRole('region',{name:'看板列：优先级 2'}),{dataTransfer:transfer})
   fireEvent.drop(screen.getByRole('region',{name:'看板列：优先级 2'}),{dataTransfer:transfer})
   expect(move).toHaveBeenLastCalledWith('t',groups[0],groups[1])
+  fireEvent.click(screen.getByLabelText('任务操作：移动卡片'))
   fireEvent.click(screen.getByRole('combobox',{name:'移动任务：移动卡片'}))
   fireEvent.keyDown(screen.getByRole('listbox'),{key:'ArrowDown'})
   fireEvent.keyDown(screen.getByRole('listbox'),{key:'Enter'})

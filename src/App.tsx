@@ -1,5 +1,5 @@
-import { Pencil, CheckCheck, CloudOff, Menu, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Pencil, CheckCheck, CloudOff, Menu, Plus, Search, SlidersHorizontal, SquareCheck, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { CollectionDialog } from './components/CollectionDialog'
 import { MobileNav } from './components/MobileNav'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -15,6 +15,10 @@ import { TaskBoard } from './components/TaskBoard'
 import { SectionManager } from './components/SectionManager'
 import { TaskViewToolbar } from './components/TaskViewToolbar'
 import { Select } from './components/Select'
+import { BrandMark } from './components/BrandMark'
+import { BulkToolbar } from './components/BulkToolbar'
+import { applyBulkAction, undoBulkAction, type BulkAction, type BulkUndo } from './lib/bulk-tasks'
+import { localDateKey } from './lib/calendar'
 import { defaultTaskView, defaultsForGroup, groupTasksForView, moveTaskToGroup, removeSection, reorderSection, validSectionId } from './lib/grouping'
 import { recordActivity, removeLabel, updateLabel } from './lib/activity'
 import { compileFilter } from './lib/filters'
@@ -71,12 +75,21 @@ export default function App() {
     message: string
     undoTaskId?: string
     generatedTaskId?: string
+    undoBatch?: BulkUndo
   } | null>(null)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [online, setOnline] = useState(navigator.onLine)
   const dataRef = useRef<AppData | null>(null)
   const reminderDeliveryRef = useRef(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const workspaceRef=useRef<HTMLDivElement>(null)
+  const [selectionMode,setSelectionMode]=useState(false)
+  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set())
+  useLayoutEffect(()=>{
+    if(workspaceRef.current)workspaceRef.current.scrollTop=0
+    setSelectionMode(false);setSelectedIds(new Set())
+  },[view,query,Boolean(data)])
+  useEffect(()=>{setSelectionMode(false);setSelectedIds(new Set())},[localDateKey(previewDate)])
 
   useEffect(() => {
     let active = true
@@ -123,7 +136,7 @@ export default function App() {
       } : latest)
       if (!deliveredBySystem) {
         const title = due.length === 1 ? due[0].title : `${due.length} 个任务提醒已到期`
-        setToast({ message: `提醒：${title}` })
+        setToast(current=>current?.undoBatch||current?.undoTaskId?current:{message:`提醒：${title}`})
       }
       reminderDeliveryRef.current = false
     }
@@ -135,7 +148,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 5_000)
+    const timer = window.setTimeout(() => setToast(null), toast.undoBatch || toast.undoTaskId ? 12_000 : 5_000)
     return () => window.clearTimeout(timer)
   }, [toast])
 
@@ -164,7 +177,7 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey) return
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
       const target = event.target as HTMLElement
       const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable
       if (event.key === '/' && !typing) {
@@ -177,6 +190,8 @@ export default function App() {
         setCreatingTask(true)
       }
       if (event.key === 'Escape') {
+        if(document.querySelector('.task-drawer,.quick-modal'))return
+        setSelectionMode(false);setSelectedIds(new Set())
         setCreatingTask(false)
         setInlineAdding(false)
         setViewOptionsOpen(false)
@@ -214,6 +229,33 @@ export default function App() {
   const changeTaskView = (patch:Partial<TaskViewOptions>) => setData(current=>current?{...current,preferences:{...(current.preferences??preferences),taskViews:{...current.preferences?.taskViews,[taskViewKey]:{...taskViewOptions,...patch}}}}:current)
   const groups = useMemo(() => data?groupTasksForView(data,tasks,taskViewOptions.groupBy,query?'all':view,clock,taskViewOptions.layout==='board'):[], [data,tasks,taskViewOptions.groupBy,taskViewOptions.layout,view,query,clock])
   const editingTask = data?.tasks.find((task) => task.id === editingTaskId)
+
+  const visibleTasks=!query&&view==='upcoming'&&data?data.tasks.filter(task=>task.dueAt&&localDateKey(new Date(task.dueAt))===localDateKey(previewDate)&&(showCompleted||!task.completed)):tasks
+  const visibleIds=new Set(visibleTasks.map(task=>task.id))
+  const selectedVisible=new Set([...selectedIds].filter(id=>visibleIds.has(id)))
+  const selection={active:selectionMode,selected:selectedVisible,onSelect:(id:string)=>setSelectedIds(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next})}
+  const selectAll=()=>setSelectedIds(selectedVisible.size===visibleIds.size?new Set():visibleIds)
+  const applyBatch=(action:BulkAction)=>{
+    if(!data)return
+    try {
+      const result=applyBulkAction(data,selectedVisible,action)
+      if(!result.count){setToast({message:'所选任务已是这个状态'});return}
+      setData(result.data);setToast({message:`已更新 ${result.count} 项任务`,undoBatch:result.undo})
+    }catch(error){setToast({message:error instanceof Error?error.message:'无法完成批量操作'})}
+  }
+  const undoBatch=()=>{
+    if(!data||!toast?.undoBatch)return
+    try {setData(undoBulkAction(data,toast.undoBatch));setToast({message:'已撤销批量操作'})}
+    catch(error){setToast({message:error instanceof Error?error.message:'无法撤销'})}
+  }
+  const saveMany=(drafts:TaskDraft[])=>{
+    if(!data||!drafts.length)return
+    const timestamp=new Date().toISOString()
+    const added:Task[]=drafts.map(draft=>({...draft,id:createId('task'),sectionId:validSectionId(data,draft.projectId,draft.sectionId),completed:false,createdAt:timestamp,updatedAt:timestamp}))
+    let next={...data,tasks:[...added,...data.tasks]}
+    for(const task of added)next=recordActivity(next,'task_created',task.title,task,'多行录入')
+    setData(next);setCreatingTask(false);setToast({message:`已添加 ${added.length} 项任务`,undoBatch:{before:[],after:[],added}})
+  }
 
   const defaultProjectId = view.startsWith('project:') ? view.slice('project:'.length) : 'inbox'
   const defaultQuickDate = view === 'upcoming' ? new Date(previewDate.getFullYear(),previewDate.getMonth(),previewDate.getDate(),9).toISOString() : view === 'today' ? new Date().toISOString() : undefined
@@ -297,6 +339,7 @@ export default function App() {
     })
     setEditingTaskId(null)
     setToast({ message: '任务已删除' })
+    return true
   }
 
   const createCollection = (name: string, color: string) => {
@@ -396,12 +439,12 @@ export default function App() {
     if (choice.outcome === 'accepted') setInstallPrompt(null)
   }
 
-  if (loadError) return <main className="loading-screen"><div className="brand-mark large">序</div><h1>暂时无法读取本机任务</h1><p>{loadError}</p><p>现有数据未被替换。请关闭隐私模式，或检查浏览器的存储权限。</p><button className="primary-button" onClick={() => location.reload()}>重新读取</button></main>
+  if (loadError) return <main className="loading-screen"><BrandMark large/><h1>暂时无法读取本机任务</h1><p>{loadError}</p><p>现有数据未被替换。请关闭隐私模式，或检查浏览器的存储权限。</p><button className="primary-button" onClick={() => location.reload()}>重新读取</button></main>
 
   if (!data) {
     return (
       <main className="loading-screen">
-        <div className="brand-mark large">序</div>
+        <BrandMark large/>
         <p>正在打开你的本地清单…</p>
       </main>
     )
@@ -416,7 +459,7 @@ export default function App() {
   const pageSubtitle = previewPage ? '从一天到整个月，给接下来的事留好位置。' : organizePage ? `${data.filters?.length??0} 个过滤器 · ${data.labels.length} 个标签` : activityPage ? `${data.activities?.length??0} 条本地记录` : completedPage ? `${tasks.length} 个已完成任务，可随时恢复` : `${openTasks} 个待办${tasks.length>openTasks?` · ${tasks.length-openTasks} 个已完成`:''}`
 
   return (
-    <div className={`app-shell ${compact ? 'is-compact' : ''} ${!organizePage&&!activityPage&&!previewPage&&taskViewOptions.layout==='board'?'has-board':''}`}>
+    <div className={`app-shell ${compact ? 'is-compact' : ''} ${selectionMode?'has-selection':''} ${!organizePage&&!activityPage&&!previewPage&&taskViewOptions.layout==='board'?'has-board':''}`}>
       <Sidebar
         data={data}
         currentView={view}
@@ -430,6 +473,7 @@ export default function App() {
         onSearch={() => searchRef.current?.focus()}
         onAddCollection={type=>{setEditingLabel(null);setCollectionDialog(type)}}
         onOpenSettings={() => setSettingsOpen(true)}
+        onToggleFavorite={key=>changePreferences({favoriteViews:preferences.favoriteViews?.includes(key)?preferences.favoriteViews.filter(view=>view!==key):[...(preferences.favoriteViews??[]),key]})}
       />
 
       <main className="workspace">
@@ -457,13 +501,14 @@ export default function App() {
           </div>
         </header>
 
-        <div className="workspace-scroll">
+        <div className="workspace-scroll" ref={workspaceRef}>
           <section className="view-header">
             <div>
               <div className="date-kicker">{currentDateFormatter.format(new Date())}</div>
               <h1>{query ? '搜索结果' : title}</h1>
               <p><CheckCheck size={14} />{query ? `全部任务中找到 ${tasks.length} 项` : pageSubtitle}{!query && !organizePage && !activityPage && !completedPage && !previewPage && <span className="header-note">把注意力留给当下。</span>}</p>
             </div>
+            {!organizePage&&!activityPage&&visibleTasks.length>0&&<button type="button" className={`selection-trigger ${selectionMode?'is-active':''}`} aria-pressed={selectionMode} onClick={()=>{setSelectionMode(!selectionMode);setSelectedIds(new Set())}}><SquareCheck size={16}/>{selectionMode?'退出选择':'选择任务'}</button>}
             {organizePage ? <button className="header-add" onClick={()=>setFilterDialog({})}><Plus size={16}/>新建过滤器</button> : activityPage || completedPage ? null : <div className="header-buttons">{selectedFilter&&!query&&<button className="header-add" onClick={()=>setFilterDialog({filter:selectedFilter})}><Pencil size={15}/>编辑过滤器</button>}<button className="header-add" type="button" onClick={() => { if(previewPage){setQuickDefaults(undefined);setCreatingTask(true)}else if(taskViewOptions.layout==='board')startGroupAdd();else setInlineAdding(true); setQuery('') }}><Plus size={16} />添加任务</button></div>}
           </section>
 
@@ -473,27 +518,30 @@ export default function App() {
             </div>
           )}
 
-          {organizePage ? <OrganizationHub data={data} onView={setView} onFilter={(filter,query)=>setFilterDialog({filter,query})} onDeleteFilter={deleteFilter} onLabel={openLabel} onDeleteLabel={deleteLabel}/> : activityPage ? <ActivityPanel data={data} onOpenTask={setEditingTaskId}/> : previewPage ? <CalendarPreview data={data} date={previewDate} now={clock} mode={preferences.previewMode??'week'} showCompleted={showCompleted} sortMode={sortMode} onDateChange={setPreviewDate} onModeChange={previewMode=>changePreferences({previewMode})} onAdd={date=>{setQuickDefaults(undefined);setPreviewDate(date);setCreatingTask(true)}} onEdit={task=>setEditingTaskId(task.id)} onToggle={toggleTask} onShowAll={()=>setView('all')}/> : <>
+          {organizePage ? <OrganizationHub data={data} onView={setView} onFilter={(filter,query)=>setFilterDialog({filter,query})} onDeleteFilter={deleteFilter} onLabel={openLabel} onDeleteLabel={deleteLabel}/> : activityPage ? <ActivityPanel data={data} onOpenTask={setEditingTaskId}/> : previewPage ? <CalendarPreview data={data} date={previewDate} now={clock} mode={preferences.previewMode??'week'} showCompleted={showCompleted} sortMode={sortMode} onDateChange={setPreviewDate} onModeChange={previewMode=>changePreferences({previewMode})} onAdd={date=>{setQuickDefaults(undefined);setPreviewDate(date);setCreatingTask(true)}} onEdit={task=>setEditingTaskId(task.id)} onToggle={toggleTask} onShowAll={()=>setView('all')} selection={selection}/> : <>
           <TaskViewToolbar options={taskViewOptions} onChange={changeTaskView} canManageSections={Boolean(sectionProjectId&&!query)} onManageSections={()=>setSectionManagerOpen(true)}/>
           {selectedFilter && !query && <div className={`filter-view-query ${compiledFilter?.error?'has-error':''}`}><code>{selectedFilter.query}</code><span>{compiledFilter?.error??'此视图按查询条件匹配，也可包含已完成任务'}</span></div>}
-          {taskViewOptions.layout==='board'?<TaskBoard canAdd={!completedPage} data={data} groups={groups} onAdd={startGroupAdd} onEdit={task=>setEditingTaskId(task.id)} onToggle={toggleTask} onMove={moveBoardTask}/>:<TaskList
+          {taskViewOptions.layout==='board'?<TaskBoard canAdd={!completedPage} data={data} groups={groups} onAdd={startGroupAdd} onEdit={task=>setEditingTaskId(task.id)} onToggle={toggleTask} onMove={moveBoardTask} selection={selection}/>:<TaskList
             data={data}
             groups={groups}
             query={query}
             onAdd={() => setInlineAdding(true)}
             onEdit={(task) => setEditingTaskId(task.id)}
             onToggle={toggleTask}
+            selection={selection}
             hideAdd={inlineAdding || completedPage || Boolean(selectedFilter&&!query)}
             onGroupAdd={completedPage?undefined:startGroupAdd}
           />}
-          {inlineAdding && taskViewOptions.layout==='list' && <QuickAdd key={view} data={data} defaultProjectId={defaultProjectId} defaultDate={defaultQuickDate} onClose={() => setInlineAdding(false)} onSave={saveTask} />}
+          {inlineAdding && taskViewOptions.layout==='list' && <QuickAdd key={view} data={data} defaultProjectId={defaultProjectId} defaultDate={defaultQuickDate} onClose={() => setInlineAdding(false)} onSave={saveTask} onSaveMany={saveMany} />}
           <div className="list-footnote"><span>一件一件，慢慢完成。</span><span><kbd>Q</kbd> 快速添加</span></div></>}
         </div>
       </main>
 
+      {selectionMode&&!organizePage&&!activityPage&&<BulkToolbar data={data} tasks={visibleTasks} selected={selectedVisible} onSelectAll={selectAll} onClose={()=>{setSelectionMode(false);setSelectedIds(new Set())}} onApply={applyBatch}/>}
+
       <MobileNav currentView={view} onViewChange={setView} onAdd={() => {setQuickDefaults(undefined);setCreatingTask(true)}} onMenu={() => setSidebarOpen(true)} />
 
-      {creatingTask && <QuickAdd modal data={data} defaults={quickDefaults} defaultProjectId={quickDefaults?.projectId??defaultProjectId} defaultDate={quickDefaults&&Object.hasOwn(quickDefaults,'dueAt')?quickDefaults.dueAt:defaultQuickDate} onClose={() => setCreatingTask(false)} onSave={saveTask} />}
+      {creatingTask && <QuickAdd modal data={data} defaults={quickDefaults} defaultProjectId={quickDefaults?.projectId??defaultProjectId} defaultDate={quickDefaults&&Object.hasOwn(quickDefaults,'dueAt')?quickDefaults.dueAt:defaultQuickDate} onClose={() => setCreatingTask(false)} onSave={saveTask} onSaveMany={saveMany} />}
 
       {editingTask && (
         <TaskEditor
@@ -529,6 +577,7 @@ export default function App() {
       {toast && (
         <div className="toast" role="status">
           <span>{toast.message}</span>
+          {toast.undoBatch&&<button type="button" onClick={undoBatch}>撤销</button>}
           {toast.undoTaskId && <button type="button" onClick={undoCompletion}>撤销</button>}
           <button className="toast-close" type="button" onClick={() => setToast(null)} aria-label="关闭提示"><X size={15} /></button>
         </div>

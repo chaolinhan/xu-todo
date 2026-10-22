@@ -96,7 +96,7 @@ function isTaskViews(value:unknown):boolean {
 function isPreferences(value:unknown):boolean {
   if (!value || typeof value!=='object') return false
   const preferences=value as Record<string,unknown>
-  return typeof preferences.showCompleted==='boolean' && typeof preferences.compact==='boolean' && ['date','priority'].includes(preferences.sortMode as string) && (preferences.previewMode === undefined || ['day','week','month'].includes(preferences.previewMode as string)) && (preferences.taskViews===undefined||isTaskViews(preferences.taskViews))
+  return (preferences.favoriteViews===undefined||(Array.isArray(preferences.favoriteViews)&&preferences.favoriteViews.every(key=>typeof key==='string'&&/^(project|label|filter):.+$/.test(key))&&new Set(preferences.favoriteViews).size===preferences.favoriteViews.length)) && typeof preferences.showCompleted==='boolean' && typeof preferences.compact==='boolean' && ['date','priority'].includes(preferences.sortMode as string) && (preferences.previewMode === undefined || ['day','week','month'].includes(preferences.previewMode as string)) && (preferences.taskViews===undefined||isTaskViews(preferences.taskViews))
 }
 
 export function isAppData(value: unknown): value is AppData {

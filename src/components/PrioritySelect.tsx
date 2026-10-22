@@ -9,6 +9,6 @@ const options: SelectOption[] = [1, 2, 3, 4].map(priority => ({
   icon: <Flag size={15} fill={priority < 4 ? 'currentColor' : 'none'} />,
 }))
 
-export function PrioritySelect({ value, onChange, label = '优先级', compact = false }: { value: Priority; onChange: (value: Priority) => void; label?: string; compact?: boolean }) {
-  return <Select label={label} value={String(value)} options={options} compact={compact} onChange={value => onChange(Number(value) as Priority)} />
+export function PrioritySelect({ value, onChange, label = '优先级', compact = false }: { value?: Priority; onChange: (value: Priority) => void; label?: string; compact?: boolean }) {
+  return <Select placeholder="优先级" label={label} value={value === undefined ? '' : String(value)} options={options} compact={compact} onChange={value => onChange(Number(value) as Priority)} />
 }

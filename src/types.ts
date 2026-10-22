@@ -72,7 +72,7 @@ export interface ActivityEntry {
 export type PreviewMode = 'day' | 'week' | 'month'
 export type GroupBy = 'section' | 'date' | 'priority' | 'project' | 'label' | 'none'
 export interface TaskViewOptions { layout:'list' | 'board'; groupBy:GroupBy }
-export interface ViewPreferences { showCompleted: boolean; compact: boolean; sortMode: 'date' | 'priority'; previewMode?: PreviewMode; taskViews?: Record<string,TaskViewOptions> }
+export interface ViewPreferences { showCompleted: boolean; compact: boolean; sortMode: 'date' | 'priority'; previewMode?: PreviewMode; favoriteViews?: ViewKey[]; taskViews?: Record<string,TaskViewOptions> }
 
 export interface AppData {
   version: 1
