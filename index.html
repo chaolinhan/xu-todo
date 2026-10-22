@@ -11,7 +11,14 @@
     <title>小序 · 本地待办</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="max-width:560px;margin:15vh auto;padding:24px;font-family:sans-serif;line-height:1.8;color:#645849">
+        <h1 style="font-size:24px">小序</h1>
+        <p>正在打开你的本地清单……</p>
+        <details><summary>页面没有打开？</summary><p>此应用需要通过网页地址运行，不能直接双击源码文件。请使用<a href="http://127.0.0.1:4178/">本地应用入口</a>（需保持本地服务运行），或打开<a href="https://chaolinhan.github.io/xu-todo/">在线版</a>。</p><p>这两个地址的数据各自保存在浏览器中，迁移时请使用“设置与备份”。</p></details>
+        <noscript><p>请启用浏览器的 JavaScript 后重新打开。</p></noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

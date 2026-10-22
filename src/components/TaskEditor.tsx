@@ -1,10 +1,12 @@
-import { Bell, Calendar, ChevronDown, Flag, Folder, Repeat2, Tag, Trash2, X } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, Flag, Folder, Repeat2, Tag, Trash2, X, CopyPlus } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
-import type { AppData, Priority, RecurrenceUnit, Task, TaskDraft } from '../types'
+import type { AppData, Priority, RecurrenceUnit, Task, TaskDraft, Subtask } from '../types'
 import { createRecurrenceRule } from '../lib/recurrence'
 import { DateTimePicker } from './DateTimePicker'
 import { PrioritySelect } from './PrioritySelect'
 import { Select } from './Select'
+import { SubtaskEditor } from './SubtaskEditor'
+import { validSubtasks } from '../lib/subtasks'
 import { useDraft } from '../hooks/useDraft'
 import { useDialog } from '../hooks/useDialog'
 import { fromDateTimeLocal, toDateTimeLocal } from '../lib/task-utils'
@@ -16,16 +18,17 @@ interface TaskEditorProps {
   onClose: () => void
   onSave: (draft: TaskDraft) => void
   onDelete?: () => boolean | void
+  onTemplate?: (draft:TaskDraft) => void
 }
 
 type RecurrenceChoice = 'none' | RecurrenceUnit | 'custom'
 
 interface EditorDraft {
-  title:string; description:string; dueAt:string; reminderAt:string; priority:Priority; projectId:string; sectionId:string; labelIds:string[]; recurrenceChoice:RecurrenceChoice; customInterval:string; customUnit:RecurrenceUnit; reminderLinked:boolean
+  subtasks?:Subtask[]; subtaskInput?:string; title:string; description:string; dueAt:string; reminderAt:string; priority:Priority; projectId:string; sectionId:string; labelIds:string[]; recurrenceChoice:RecurrenceChoice; customInterval:string; customUnit:RecurrenceUnit; reminderLinked:boolean
 }
 function validEditorDraft(value:unknown):value is EditorDraft {
   const v=value as EditorDraft|null
-  return Boolean(v&&['title','description','dueAt','reminderAt','projectId','sectionId','customInterval'].every(key=>typeof v[key as keyof EditorDraft]==='string')&&[1,2,3,4].includes(v.priority)&&Array.isArray(v.labelIds)&&v.labelIds.every(id=>typeof id==='string')&&['none','day','weekday','week','month','year','custom'].includes(v.recurrenceChoice)&&['day','weekday','week','month','year'].includes(v.customUnit)&&typeof v.reminderLinked==='boolean'&&[v.dueAt,v.reminderAt].every(date=>!date||Number.isFinite(new Date(date).getTime())))
+  return Boolean(v&&['title','description','dueAt','reminderAt','projectId','sectionId','customInterval'].every(key=>typeof v[key as keyof EditorDraft]==='string')&&(v.subtaskInput===undefined||typeof v.subtaskInput==='string')&&(v.subtasks===undefined||(Array.isArray(v.subtasks)&&v.subtasks.length<=200&&v.subtasks.every(s=>typeof s.id==='string'&&typeof s.title==='string'&&typeof s.completed==='boolean')))&&[1,2,3,4].includes(v.priority)&&Array.isArray(v.labelIds)&&v.labelIds.every(id=>typeof id==='string')&&['none','day','weekday','week','month','year','custom'].includes(v.recurrenceChoice)&&['day','weekday','week','month','year'].includes(v.customUnit)&&typeof v.reminderLinked==='boolean'&&[v.dueAt,v.reminderAt].every(date=>!date||Number.isFinite(new Date(date).getTime())))
 }
 
 function recurrenceChoiceFor(task?: Task): RecurrenceChoice {
@@ -33,10 +36,10 @@ function recurrenceChoiceFor(task?: Task): RecurrenceChoice {
   return task.recurrence.interval === 1 ? task.recurrence.unit : 'custom'
 }
 
-export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDelete }: TaskEditorProps) {
-  const initial:EditorDraft={title:task?.title??'',description:task?.description??'',dueAt:toDateTimeLocal(task?.dueAt),reminderAt:toDateTimeLocal(task?.reminderAt),priority:task?.priority??4,projectId:task?.projectId??defaultProjectId,sectionId:task?.sectionId??'',labelIds:task?.labelIds??[],recurrenceChoice:recurrenceChoiceFor(task),customInterval:String(task?.recurrence?.interval??2),customUnit:task?.recurrence?.unit??'week',reminderLinked:!task||task.reminderAt===task.dueAt}
+export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDelete, onTemplate }: TaskEditorProps) {
+  const initial:EditorDraft={subtasks:task?.subtasks??[],subtaskInput:'',title:task?.title??'',description:task?.description??'',dueAt:toDateTimeLocal(task?.dueAt),reminderAt:toDateTimeLocal(task?.reminderAt),priority:task?.priority??4,projectId:task?.projectId??defaultProjectId,sectionId:task?.sectionId??'',labelIds:task?.labelIds??[],recurrenceChoice:recurrenceChoiceFor(task),customInterval:String(task?.recurrence?.interval??2),customUnit:task?.recurrence?.unit??'week',reminderLinked:!task||task.reminderAt===task.dueAt}
   const saved=useDraft(`task:${task?.id??'new'}`,initial,validEditorDraft,JSON.stringify(initial))
-  const {title,description,dueAt,reminderAt,priority,projectId,sectionId,labelIds,recurrenceChoice,customInterval,customUnit}=saved.value
+  const {subtasks=[],subtaskInput='',title,description,dueAt,reminderAt,priority,projectId,sectionId,labelIds,recurrenceChoice,customInterval,customUnit}=saved.value
   const field=<K extends keyof EditorDraft>(name:K,value:EditorDraft[K])=>saved.update(current=>({...current,[name]:value}))
   const titleRef=useRef<HTMLInputElement>(null)
   const panel=useDialog(onClose)
@@ -51,7 +54,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
     if (!Number.isInteger(interval) || interval < 1 || interval > 365) return undefined
     return createRecurrenceRule(unit, interval, due)
   }, [customInterval, customUnit, dueAt, recurrenceChoice])
-  const canSave = title.trim().length > 0 && title.trim().length <= 240 && (recurrenceChoice === 'none' || Boolean(recurrence))
+  const canSave = validSubtasks(subtasks) && !subtaskInput.trim() && title.trim().length > 0 && title.trim().length <= 240 && (recurrenceChoice === 'none' || Boolean(recurrence))
   const modeTitle = task ? '编辑任务' : '添加任务'
   const submitLabel = task ? '保存更改' : '添加任务'
   const selectedLabels = useMemo(() => new Set(labelIds), [labelIds])
@@ -62,8 +65,13 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
       titleRef.current?.focus()
       return
     }
-    onSave({
+    onSave(draft())
+    saved.clear()
+  }
+
+  const draft=():TaskDraft=>({
       title: title.trim(),
+      subtasks:subtasks.map(step=>({...step,title:step.title.trim()})),
       description: description.trim(),
       dueAt: fromDateTimeLocal(dueAt),
       reminderAt: fromDateTimeLocal(reminderAt),
@@ -73,8 +81,6 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
       sectionId:data.sections?.some(s=>s.id===sectionId&&s.projectId===projectId)?sectionId:undefined,
       labelIds:labelIds.filter(id=>data.labels.some(label=>label.id===id)),
     })
-    saved.clear()
-  }
 
   const toggleLabel=(id:string)=>field('labelIds',labelIds.includes(id)?labelIds.filter(item=>item!==id):[...labelIds,id])
   const changeDueAt=(value:string)=>saved.update(current=>({...current,dueAt:value,...(current.reminderLinked?{reminderAt:value}:{})}))
@@ -119,6 +125,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
           </div>
 
           {title.trim().length>240&&<p className="draft-error" role="alert">任务名称不能超过240字，请缩短后保存。</p>}
+          <SubtaskEditor steps={subtasks} input={subtaskInput} onInput={value=>field('subtaskInput',value)} onChange={steps=>field('subtasks',steps)}/>
           <div className="editor-grid">
             <div className="editor-field">
               <span><Calendar size={16} /> 截止时间</span>
@@ -184,6 +191,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
             </div>
           </fieldset>
 
+          {onTemplate&&<button className="save-template-button" type="button" disabled={!canSave} onClick={()=>onTemplate(draft())}><CopyPlus size={15}/>保存为任务模板</button>}
           </div>
           <footer className="dialog-actions">
             {task && onDelete ? (

@@ -1,4 +1,4 @@
-import { Filter, History, CheckCheck, Archive, CalendarDays, CalendarRange, ChevronDown, HardDrive, Hash, Inbox, Plus, Search, Settings, Star, Tag, X } from 'lucide-react'
+import { FileStack, Filter, History, CheckCheck, Archive, CalendarDays, CalendarRange, ChevronDown, HardDrive, Hash, Inbox, Plus, Search, Settings, Star, Tag, X } from 'lucide-react'
 import { useState } from 'react'
 import type { AppData, ViewKey } from '../types'
 import { compileFilter } from '../lib/filters'
@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 const views:Array<{key:ViewKey;label:string;icon:typeof Inbox}>=[
   {key:'inbox',label:'收件箱',icon:Inbox},{key:'today',label:'今天',icon:CalendarDays},{key:'upcoming',label:'预览',icon:CalendarRange},{key:'all',label:'全部任务',icon:Archive},
-  {key:'organize',label:'过滤器与标签',icon:Filter},{key:'completed',label:'已完成',icon:CheckCheck},{key:'activity',label:'活动日志',icon:History},
+  {key:'templates',label:'模板库',icon:FileStack},{key:'organize',label:'过滤器与标签',icon:Filter},{key:'completed',label:'已完成',icon:CheckCheck},{key:'activity',label:'活动日志',icon:History},
 ]
 export function Sidebar({data,currentView,open,saved,offlineReady,offlineError,onClose,onViewChange,onAddTask,onSearch,onAddCollection,onOpenSettings,onToggleFavorite}:SidebarProps) {
   const [collapsed,setCollapsed]=useState<string[]>([])

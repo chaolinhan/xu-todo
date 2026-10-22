@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Calendar, Check, ChevronDown, Pencil, Plus, Repeat2, Tag as TagIcon } from 'lucide-react'
+import { Bell, Calendar, Check, ChevronDown, Pencil, Plus, Repeat2, ListChecks, Tag as TagIcon } from 'lucide-react'
 import { describeRecurrence } from '../lib/recurrence'
 import type { AppData, Task, TaskGroup } from '../types'
 
@@ -58,6 +58,7 @@ export function TaskRow({ task, data, onEdit, onToggle, selection }: Omit<TaskLi
         <span className="task-title">{task.title}</span>
         {task.description && <span className="task-description">{task.description}</span>}
         <span className="task-meta">
+          {Boolean(task.subtasks?.length)&&<span className="subtask-progress" title="子任务完成进度"><ListChecks size={13}/>{task.subtasks!.filter(step=>step.completed).length}/{task.subtasks!.length}</span>}
           {task.completedAt && <span className="completion-date"><Check size={13}/>完成于 {dateFormatter.format(new Date(task.completedAt))}</span>}
           {task.dueAt && (
             <span className={new Date(task.dueAt) < new Date() && !task.completed ? 'is-overdue' : ''}>

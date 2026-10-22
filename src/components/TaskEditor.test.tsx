@@ -51,3 +51,20 @@ it('keeps a drawer draft on Escape and restores it on reopening without saving t
   fireEvent.click(screen.getByRole('button',{name:'丢弃草稿'}))
   expect(screen.getByRole('textbox',{name:'编辑任务名称'})).toHaveValue('')
 })
+
+it('retains subtask drafts, changes their order and saves progress without completing the parent',()=>{
+ const save=vi.fn()
+ const props={data:{version:1 as const,tasks:[],projects:[],labels:[]},defaultProjectId:'inbox',onClose:()=>{},onSave:save}
+ const first=render(<TaskEditor {...props}/>)
+ fireEvent.change(screen.getByRole('textbox',{name:'编辑任务名称'}),{target:{value:'发布检查'}})
+ fireEvent.change(screen.getByRole('textbox',{name:'添加子任务'}),{target:{value:'准备资料\n复核内容'}})
+ expect(screen.getByRole('button',{name:'添加任务'})).toBeDisabled()
+ first.unmount();render(<TaskEditor {...props}/>)
+ expect(screen.getByRole('textbox',{name:'添加子任务'})).toHaveValue('准备资料\n复核内容')
+ fireEvent.click(screen.getByRole('button',{name:'添加这些子任务'}))
+ fireEvent.click(screen.getByRole('button',{name:'完成子任务：准备资料'}))
+ fireEvent.click(screen.getByRole('button',{name:'下移子任务：准备资料'}))
+ fireEvent.click(screen.getByRole('button',{name:'添加任务'}))
+ expect(save).toHaveBeenCalledOnce()
+ expect(save.mock.calls[0][0].subtasks).toEqual([expect.objectContaining({title:'复核内容',completed:false}),expect.objectContaining({title:'准备资料',completed:true})])
+})

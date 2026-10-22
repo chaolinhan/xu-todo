@@ -1,6 +1,8 @@
 import type { ActivityEntry, AppData, Label, Project, RecurrenceRule, SavedFilter, Task } from '../types'
 
 import { activityLabels } from './activity'
+import { validSubtasks } from './subtasks'
+import { isLocalTemplate } from './templates'
 
 interface BackupEnvelope {
   format: 'xiaoxu-backup'
@@ -66,7 +68,8 @@ function isTask(value: unknown): value is Task {
     isString(task.projectId) &&
     isOptionalString(task.sectionId) &&
     Array.isArray(task.labelIds) &&
-    task.labelIds.every(isString)
+    task.labelIds.every(isString) &&
+    (task.subtasks === undefined || validSubtasks(task.subtasks))
   )
 }
 
@@ -110,6 +113,7 @@ export function isAppData(value: unknown): value is AppData {
     data.projects.every(isProject) &&
     Array.isArray(data.labels) &&
     data.labels.every(isLabel) &&
+    (data.templates===undefined || (Array.isArray(data.templates) && data.templates.length<=1000 && data.templates.every(isLocalTemplate) && new Set(data.templates.map(t=>t.id)).size===data.templates.length)) &&
     (data.sections===undefined || (Array.isArray(data.sections) && data.sections.every(isSection))) &&
     (data.filters===undefined || (Array.isArray(data.filters) && data.filters.every(isSavedFilter))) &&
     (data.activities===undefined || (Array.isArray(data.activities) && data.activities.every(isActivity))) &&

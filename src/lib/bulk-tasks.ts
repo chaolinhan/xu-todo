@@ -1,5 +1,6 @@
 import type { AppData, Priority, Task } from '../types'
 import { createId } from './id'
+import { completeSubtasks } from './subtasks'
 import { recordActivity } from './activity'
 import { createNextTaskOccurrence, createRecurrenceRule } from './recurrence'
 
@@ -9,9 +10,9 @@ export type BulkAction =
   | {kind:'label'; value:string}
   | {kind:'date'; value?:string}
   | {kind:'completed'; value:boolean}
-export interface BulkUndo { before:Task[]; after:Task[]; added:Task[] }
+export interface BulkUndo { before:Task[]; after:Task[]; added:Task[]; completion?:boolean }
 
-export function applyBulkAction(data:AppData, ids:ReadonlySet<string>, action:BulkAction, now=new Date(), newId=()=>createId('task')) {
+export function applyBulkAction(data:AppData, ids:ReadonlySet<string>, action:BulkAction, now=new Date(), newId=()=>createId('task'), detail='批量操作') {
   const selected=data.tasks.filter(task=>ids.has(task.id))
   if (!selected.length) throw new Error('请先选择任务')
   if(action.kind==='project' && action.value!=='inbox' && !data.projects.some(p=>p.id===action.value)) throw new Error('目标项目不存在')
@@ -35,6 +36,7 @@ export function applyBulkAction(data:AppData, ids:ReadonlySet<string>, action:Bu
     }
     if(action.kind==='completed' && task.completed!==action.value) {
       updated.completed=action.value
+      if(action.value && task.subtasks) updated.subtasks=completeSubtasks(task.subtasks)
       updated.completedAt=action.value?stamp:undefined
       if(action.value && !data.tasks.some(t=>t.previousOccurrenceId===task.id)) {
         const next=createNextTaskOccurrence(task,now,newId())
@@ -47,7 +49,7 @@ export function applyBulkAction(data:AppData, ids:ReadonlySet<string>, action:Bu
   }
   const changes=new Map(after.map(task=>[task.id,task]))
   let result={...data,tasks:[...added,...data.tasks.map(task=>changes.get(task.id)??task)]}
-  for(const task of after) result=recordActivity(result,action.kind==='completed'?(action.value?'task_completed':'task_reopened'):action.kind==='project'?'task_moved':'task_updated',task.title,task,'批量操作')
+  for(const task of after) result=recordActivity(result,action.kind==='completed'?(action.value?'task_completed':'task_reopened'):action.kind==='project'?'task_moved':'task_updated',task.title,task,detail)
   return {data:result,undo:{before,after,added} satisfies BulkUndo,count:after.length}
 }
 
@@ -61,6 +63,6 @@ export function undoBulkAction(data:AppData, patch:BulkUndo, now=new Date()):App
   const originals=new Map(patch.before.map(task=>[task.id,task])), addedIds=new Set(patch.added.map(task=>task.id))
   let result={...data,tasks:data.tasks.filter(t=>!addedIds.has(t.id)).map(task=>originals.has(task.id)?{...originals.get(task.id)!,updatedAt:now.toISOString()}:task)}
   if(!patch.before.length)for(const task of patch.added)result=recordActivity(result,'task_deleted',task.title,task,'撤销多行录入')
-  for(const task of patch.before) result=recordActivity(result,'task_updated',task.title,task,'撤销批量操作')
+  for(const task of patch.before) result=recordActivity(result,patch.completion?'completion_undone':'task_updated',task.title,task,patch.completion?'撤销完成':'撤销批量操作')
   return result
 }

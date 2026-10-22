@@ -203,3 +203,96 @@
   .dialog-backdrop:has(.quick-modal) {padding:16px 12px}
   .quick-modal,.quick-add.is-modal {max-height:calc(100dvh - 32px)}
 }
+
+/* Reusable workflows: quiet paper surfaces, clear steps and fixed actions. */
+.subtask-editor {margin:0 0 23px;padding:16px 0 18px;border-block:1px solid var(--line)}
+.subtask-heading,.template-preview-heading,.template-section-heading {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.subtask-heading h3 {display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#776650;margin:0}
+.subtask-heading>span {font-size:11px;font-variant-numeric:tabular-nums;color:#90775a}
+.subtask-track {height:3px;background:#f0e9df;border-radius:3px;margin:12px 0}
+.subtask-track>i {display:block;height:100%;background:#c37c5d;border-radius:3px;transition:width .15s}
+.subtask-rows {margin:9px 0}
+.subtask-row {display:flex;align-items:center;gap:9px;min-height:40px;border-bottom:1px solid #f3eee7}
+.subtask-row>input {flex:1;min-width:0;font-size:12px;color:#544b40;padding:8px 0;border:0;outline-offset:2px;background:transparent}
+.subtask-row.is-done>input {text-decoration:line-through;color:#9a8c7c}
+.subtask-check {width:17px;height:17px;flex:0 0 17px;border:1px solid #cfbeac;border-radius:5px;display:grid;place-items:center;color:transparent}
+.subtask-check[aria-pressed=true] {background:#b97a5d;border-color:#b97a5d;color:#fff}
+.subtask-row-actions {display:flex;gap:0}
+.subtask-row-actions>.icon-button {width:24px;height:28px;color:#998772}
+.subtask-row-actions>.icon-button:disabled {opacity:.25;cursor:default}
+.subtask-add {display:flex;align-items:center;gap:9px;margin-top:10px;background:#faf8f4;border:1px solid #ece4d8;border-radius:7px;padding:7px 9px}
+.subtask-add textarea {flex:1;min-width:0;resize:vertical;max-height:140px;min-height:24px;border:0;background:transparent;font-size:12px;line-height:1.8;color:#625340;padding:0}
+.subtask-add>button {display:grid;place-items:center;min-width:28px;min-height:28px;border-radius:5px;color:#bd6045}
+.subtask-add>button:disabled {opacity:.3}
+.subtask-help {font-size:10px;line-height:1.8;color:#96836b;margin:9px 0 0}
+.task-meta>.subtask-progress {color:#9b704e;font-variant-numeric:tabular-nums}
+.save-template-button {display:flex;align-items:center;gap:7px;font-size:12px;color:#a36c4e;padding:10px 0;margin-top:20px;border-top:1px solid var(--line);width:100%;text-align:left}
+.save-template-button:disabled {opacity:.4}
+.template-library {max-width:1100px;margin:0 auto 30px}
+.template-library-intro {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:27px 28px;background:#f5f1e9;border:1px solid #ece4d7;border-radius:12px;margin-bottom:35px}
+.template-library-intro .eyebrow {font-size:9px;color:#a18a6d;letter-spacing:1.8px}
+.template-library-intro h2 {font-size:21px;font-weight:600;letter-spacing:-.5px;color:#5c4c39;margin:8px 0}
+.template-library-intro p {font-size:12px;color:#8d7b65;line-height:1.8;margin:0}
+.template-library-intro>.secondary-button {white-space:nowrap;font-size:12px;background:#fffcf8;border-color:#ded0bb}
+.template-collection {margin-bottom:30px}
+.template-section-heading {justify-content:flex-start;margin-bottom:15px}
+.template-section-heading h2 {font-size:13px;font-weight:600;margin:0;color:#76634b}
+.template-section-heading>span {font-size:10px;color:#a18d73}
+.template-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.template-card {display:flex;flex-direction:column;padding:21px 21px 0;background:#fff;border:1px solid #e9e1d6;border-radius:11px;min-width:0;transition:border-color .15s,box-shadow .15s}
+.template-card:hover {border-color:#d9c2a6;box-shadow:0 5px 22px #61401b09}
+.template-card-top {display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.template-symbol {display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#f7f2eb;flex-shrink:0}
+.template-card-top>span {font-size:10px;color:#9a876d}
+.template-card-top>div:last-child:not(.template-symbol) {display:flex;margin-left:auto;gap:2px}
+.template-card-top .icon-button {height:27px;width:27px;color:#a18a70}
+.template-card h3 {font-size:16px;font-weight:600;color:#514331;margin:0 0 10px;overflow-wrap:anywhere}
+.template-card>p {font-size:12px;line-height:1.85;color:#91816b;margin:0 0 22px;flex:1;overflow-wrap:anywhere}
+.template-card-stats {display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:#9a866b;padding-bottom:17px}
+.template-card>footer {display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid #f0e9df}
+.template-use {display:flex;align-items:center;gap:6px;font-size:12px;color:#ac6544;padding:5px 0}
+.template-card>footer>.icon-button {height:28px;width:28px;color:#ad997d}
+.template-empty {display:flex;gap:20px;align-items:center;padding:28px;background:#fcfaf6;border:1px dashed #e5d8c5;border-radius:10px;color:#bba17f}
+.template-empty strong {font-size:13px;font-weight:550;color:#7a654a}
+.template-empty p {font-size:12px;line-height:1.9;color:#9a856a;margin:8px 0 0;max-width:610px}
+.template-status {font-size:12px;line-height:1.8;padding:12px 16px;background:#f7f1e8;border-radius:7px;color:#9a6c44}
+.template-edit-form {display:flex;flex-direction:column;gap:12px;padding-bottom:20px}
+.template-edit-form label {display:flex;flex-direction:column;gap:6px;font-size:11px;color:#958067}
+.template-edit-form input,.template-edit-form textarea,.template-project-name input {border:1px solid var(--control-border);border-radius:7px;background:#fffdfa;padding:9px 10px;color:#67513a;font-size:12px;min-width:0;width:100%}
+.template-apply .dialog-header h2 {font-size:16px;margin:3px 0 0}
+.template-apply-intro {display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.template-apply-intro h3 {font-size:19px;font-weight:600;color:#5a452f;margin:0 0 7px;overflow-wrap:anywhere}
+.template-apply-intro p {font-size:11px;color:#9b8163;margin:0}
+.template-description {font-size:12px;line-height:1.9;color:#8f785c;margin-bottom:23px;overflow-wrap:anywhere}
+.template-apply-controls {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0 18px}
+.template-apply .editor-field>span {display:flex;align-items:center;gap:6px;font-size:12px;color:#8b7255;margin-bottom:8px}
+.template-apply .editor-field>small {font-size:10px;color:#a28d74;line-height:1.8;display:block;margin-top:7px}
+.template-apply .app-select,.template-apply .date-picker-trigger {font-size:12px;min-height:40px;padding:8px 10px}
+.template-project-name {display:flex;flex-direction:column;gap:8px;font-size:12px;color:#8b7255;margin-bottom:25px}
+.template-project-name small {font-size:11px;color:#b55b3b;line-height:1.6}
+.template-preview-heading {margin:24px 0 12px}
+.template-preview-heading h3 {font-size:12px;color:#7b6041;margin:0;font-weight:600}
+.template-preview-heading>span {font-size:10px;color:#a48c70}
+.template-preview-list {list-style:none;padding:0;margin:0;border:1px solid #ece2d5;border-radius:9px;overflow:hidden}
+.template-preview-list>li {display:flex;gap:12px;padding:15px 13px;background:#fdfbf8;border-bottom:1px solid #f0e7dc}
+.template-preview-list>li:last-child {border:0}
+.template-preview-list>li>div:last-child {min-width:0;flex:1}
+.template-preview-number {font-size:10px;color:#b29775;padding-top:3px;min-width:13px}
+.template-preview-list strong {font-size:13px;font-weight:550;color:#6b5136;overflow-wrap:anywhere}
+.template-preview-meta {display:flex;align-items:center;gap:7px 11px;flex-wrap:wrap;font-size:10px;line-height:1.8;color:#a18461;margin-top:6px}
+.template-preview-meta>span {display:flex;align-items:center;gap:4px}
+.template-step-preview {margin:9px 0 0;padding-left:14px;font-size:11px;line-height:1.9;color:#99836a}
+.template-apply-note {font-size:11px;color:#a18b6f;line-height:1.9;margin:17px 0}
+.template-apply>.dialog-header {padding:20px 23px 17px}
+.template-apply .dialog-actions {justify-content:flex-end}
+@media(max-width:700px) {
+ .template-library-intro {padding:20px;align-items:flex-start;flex-direction:column;gap:17px}
+ .template-library-intro h2 {font-size:19px}
+ .template-grid {grid-template-columns:1fr;gap:13px}
+ .template-empty {align-items:flex-start;padding:20px;gap:13px}
+ .template-empty>svg {flex-shrink:0;margin-top:3px}
+ .template-card {padding:19px 19px 0}
+ .template-apply {width:100vw}
+ .save-project-template {font-size:11px}
+ .subtask-row-actions>.icon-button {width:25px;min-height:32px}
+}

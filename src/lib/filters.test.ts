@@ -38,3 +38,9 @@ describe('saved filter language',()=>{
     expect(compiled.matches(task)).toBe(false)
   })
 })
+
+it('searches subtask titles without treating their completion as the parent status',()=>{
+ const item={...task,subtasks:[{id:'s',title:'检查附件',completed:true}]}
+ expect(matches('active & search:附件',item)).toBe(true)
+ expect(matches('completed & search:附件',item)).toBe(false)
+})

@@ -199,3 +199,39 @@ it('previews multiline entry, saves all rows once and can undo their creation',a
   fireEvent.click(screen.getByRole('button',{name:'撤销'}))
   await waitFor(()=>expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks).toHaveLength(1))
 })
+
+it('saves a task template with subtasks, previews it and instantiates independent tasks',async()=>{
+ vi.mocked(appRepository.load).mockResolvedValueOnce({...structuredClone(stored),tasks:[{...stored.tasks[0],subtasks:[{id:'s',title:'复核步骤',completed:false}]}]})
+ vi.mocked(appRepository.save).mockResolvedValue(undefined)
+ render(<App/>);await screen.findByRole('heading',{name:'今天',level:1})
+ fireEvent.click(within(screen.getByRole('navigation',{name:'任务视图'})).getByRole('button',{name:/全部任务/}))
+ fireEvent.click(screen.getByRole('button',{name:'编辑任务：完成验收'}))
+ fireEvent.click(screen.getByRole('button',{name:'完成子任务：复核步骤'}))
+ fireEvent.click(screen.getByRole('button',{name:'保存为任务模板'}))
+ fireEvent.click(screen.getByRole('button',{name:'稍后继续'}))
+ const nav=within(screen.getByRole('navigation',{name:'任务视图'}))
+ fireEvent.click(nav.getByRole('button',{name:'模板库'}))
+ const template=screen.getByRole('heading',{name:'完成验收',level:3}).closest('article')!
+ fireEvent.click(within(template).getByRole('button',{name:'预览并使用'}))
+ expect(screen.getByRole('dialog',{name:'使用模板'})).toBeInTheDocument()
+ expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks).toHaveLength(1)
+ fireEvent.click(screen.getByRole('button',{name:'创建 1 项任务'}))
+ await waitFor(()=>{
+  const latest=vi.mocked(appRepository.save).mock.calls.at(-1)?.[0]
+  expect(latest?.tasks).toHaveLength(2)
+  expect(latest?.tasks[0].subtasks?.[0]).toMatchObject({title:'复核步骤',completed:false})
+  expect(latest?.tasks[0].subtasks?.[0].id).not.toBe('s')
+  expect(latest?.templates).toHaveLength(1)
+ })
+})
+
+it('restores exact subtask progress when undoing a parent completion',async()=>{
+ vi.mocked(appRepository.load).mockResolvedValueOnce({...structuredClone(stored),tasks:[{...stored.tasks[0],subtasks:[{id:'a',title:'已做',completed:true},{id:'b',title:'待做',completed:false}]}]})
+ vi.mocked(appRepository.save).mockResolvedValue(undefined)
+ render(<App/>);await screen.findByRole('heading',{name:'今天',level:1})
+ fireEvent.click(within(screen.getByRole('navigation',{name:'任务视图'})).getByRole('button',{name:/全部任务/}))
+ fireEvent.click(screen.getByRole('button',{name:'完成任务：完成验收'}))
+ await waitFor(()=>expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks[0].subtasks?.every(s=>s.completed)).toBe(true))
+ fireEvent.click(screen.getByRole('button',{name:'撤销'}))
+ await waitFor(()=>expect(vi.mocked(appRepository.save).mock.calls.at(-1)?.[0].tasks[0].subtasks).toEqual([{id:'a',title:'已做',completed:true},{id:'b',title:'待做',completed:false}]))
+})

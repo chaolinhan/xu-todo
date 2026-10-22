@@ -1,4 +1,5 @@
 import type { RecurrenceRule, RecurrenceUnit, Task } from '../types'
+import { resetSubtasks } from './subtasks'
 
 const MAX_ADVANCES = 10_000
 
@@ -97,6 +98,7 @@ export function createNextTaskOccurrence(
     ...task,
     id,
     completed: false,
+    ...(task.subtasks ? {subtasks:resetSubtasks(task.subtasks)} : {}),
     completedAt: undefined,
     createdAt: timestamp,
     updatedAt: timestamp,

@@ -9,6 +9,12 @@ export interface RecurrenceRule {
   anchorMonth?: number
 }
 
+export interface Subtask {
+  id: string
+  title: string
+  completed: boolean
+}
+
 export interface Task {
   id: string
   title: string
@@ -27,6 +33,7 @@ export interface Task {
   projectId: string
   sectionId?: string
   labelIds: string[]
+  subtasks?: Subtask[]
 }
 
 export interface Project {
@@ -80,6 +87,7 @@ export interface AppData {
   projects: Project[]
   labels: Label[]
   sections?: ProjectSection[]
+  templates?: LocalTemplate[]
   filters?: SavedFilter[]
   activities?: ActivityEntry[]
   preferences?: ViewPreferences
@@ -90,6 +98,7 @@ export type ViewKey =
   | 'today'
   | 'upcoming'
   | 'all'
+  | 'templates'
   | 'organize'
   | 'activity'
   | 'completed'
@@ -107,6 +116,7 @@ export interface TaskDraft {
   projectId: string
   sectionId?: string
   labelIds: string[]
+  subtasks?: Subtask[]
 }
 
 export type GroupTarget =
@@ -121,4 +131,26 @@ export interface TaskGroup {
   title: string
   tasks: Task[]
   target?: GroupTarget
+}
+
+export interface TemplateTask {
+  title: string
+  description: string
+  priority: Priority
+  labels: { name: string; color: string }[]
+  sectionId?: string
+  subtasks?: Subtask[]
+  schedule?: { dayOffset: number; time: string }
+  reminderOffsetMinutes?: number
+  recurrence?: RecurrenceRule
+}
+export interface LocalTemplate {
+  id: string
+  name: string
+  description: string
+  color: string
+  kind: 'task' | 'project'
+  createdAt: string
+  sections: { id: string; name: string }[]
+  tasks: TemplateTask[]
 }

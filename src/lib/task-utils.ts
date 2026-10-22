@@ -42,6 +42,10 @@ export function taskMatchesView(task: Task, view: ViewKey, now = new Date()): bo
   return false
 }
 
+export function taskSearchText(task:Task):string {
+  return `${task.title} ${task.description} ${(task.subtasks??[]).map(step=>step.title).join(' ')}`
+}
+
 function normalizeSearch(value: string): string {
   return value.trim().toLocaleLowerCase('zh-CN')
 }
@@ -52,7 +56,7 @@ export function filterTasks(tasks: Task[], view: ViewKey, query: string, now = n
     .filter((task) => taskMatchesView(task, view, now))
     .filter((task) => {
       if (!normalizedQuery) return true
-      return `${task.title} ${task.description}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery)
+      return taskSearchText(task).toLocaleLowerCase('zh-CN').includes(normalizedQuery)
     })
     .sort(compareTasks)
 }
@@ -96,6 +100,7 @@ export function getViewTitle(data: AppData, view: ViewKey): string {
   if (view === 'today') return '今天'
   if (view === 'upcoming') return '预览'
   if (view === 'all') return '全部任务'
+  if (view === 'templates') return '模板库'
   if (view === 'organize') return '过滤器与标签'
   if (view === 'activity') return '活动日志'
   if (view === 'completed') return '已完成'

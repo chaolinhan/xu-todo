@@ -57,3 +57,8 @@ describe('grouping', () => {
     expect(groups.flatMap((group) => group.tasks)).toHaveLength(4)
   })
 })
+
+it('finds the parent from subtask text while counting one task',()=>{
+ const item={...task({}),subtasks:[{id:'s',title:'检查附件',completed:false}]}
+ expect(filterTasks([item],'all','附件')).toEqual([item])
+})

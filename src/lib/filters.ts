@@ -1,5 +1,5 @@
 import type { AppData, Task } from '../types'
-import { endOfLocalDay, startOfLocalDay } from './task-utils'
+import { endOfLocalDay, startOfLocalDay, taskSearchText } from './task-utils'
 
 type Token = { kind: 'atom' | 'operator'; value: string; raw: string }
 type Predicate = (task: Task) => boolean
@@ -62,7 +62,7 @@ export function compileFilter(source: string, data: Pick<AppData, 'projects' | '
       if (/^(search:|搜索:)/i.test(value)) {
         const term = value.replace(/^(search:|搜索:)/i, '').trim().toLocaleLowerCase()
         if (!term) throw new Error('搜索条件不能为空')
-        return t => `${t.title} ${t.description}`.toLocaleLowerCase().includes(term)
+        return t => taskSearchText(t).toLocaleLowerCase().includes(term)
       }
       throw new Error(`不支持“${value}”；多个条件之间请使用 & 或 |`)
     }
