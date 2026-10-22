@@ -102,9 +102,8 @@ it('creates project sections, adds from a board column, then moves and logs the 
   fireEvent.click(screen.getByRole('button',{name:'添加任务到进行中'}))
   fireEvent.change(screen.getByRole('textbox',{name:'任务名称'}),{target:{value:'列内新任务'}})
   fireEvent.click(within(screen.getByRole('dialog',{name:'快速添加任务'})).getByRole('button',{name:'添加任务'}))
-  const options=within(screen.getByRole('combobox',{name:'移动任务：列内新任务'})).getAllByRole('option')
-  const target=options.find(o=>o.textContent==='已排期')!.getAttribute('value')!
-  fireEvent.change(screen.getByRole('combobox',{name:'移动任务：列内新任务'}),{target:{value:target}})
+  fireEvent.click(screen.getByRole('combobox',{name:'移动任务：列内新任务'}))
+  fireEvent.click(screen.getByRole('option',{name:'已排期'}))
   await waitFor(()=>{
     const latest=vi.mocked(appRepository.save).mock.calls.at(-1)?.[0]
     const section=latest?.sections?.find(s=>s.name==='已排期')

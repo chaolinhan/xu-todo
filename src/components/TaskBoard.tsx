@@ -2,6 +2,7 @@ import { Plus, GripVertical, Columns3 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { AppData, Task, TaskGroup } from '../types'
 import { TaskRow } from './TaskList'
+import { Select } from './Select'
 interface Props {canAdd?:boolean;data:AppData;groups:TaskGroup[];onAdd:(group:TaskGroup)=>void;onEdit:(task:Task)=>void;onToggle:(task:Task)=>void;onMove:(taskId:string,source:TaskGroup,target:TaskGroup)=>void}
 export function TaskBoard({canAdd=true,data,groups,onAdd,onEdit,onToggle,onMove}:Props) {
   const dragging=useRef<{taskId:string;sourceKey:string}|null>(null)
@@ -20,7 +21,7 @@ export function TaskBoard({canAdd=true,data,groups,onAdd,onEdit,onToggle,onMove}
         const targets=groups.filter(g=>g.key!==group.key&&canMove(task,g))
         return <div className="board-card" key={task.id} draggable onDragStart={e=>{dragging.current={taskId:task.id,sourceKey:group.key};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',task.id)}} onDragEnd={()=>{dragging.current=null;setOver(null)}}>
           <TaskRow task={task} data={data} onEdit={onEdit} onToggle={onToggle}/>
-          {targets.length>0&&<div className="board-card-footer"><GripVertical size={13} aria-hidden="true"/><label><span className="sr-only">移动任务：{task.title}</span><select aria-label={`移动任务：${task.title}`} value="" onChange={e=>{const target=groups.find(g=>g.key===e.target.value);if(target)onMove(task.id,group,target)}}><option value="" disabled>移动到分组…</option>{targets.map(g=><option value={g.key} key={g.key}>{g.title}</option>)}</select></label></div>}
+          {targets.length>0&&<div className="board-card-footer"><GripVertical size={13} aria-hidden="true"/><Select compact variant="quiet" label={`移动任务：${task.title}`} value="" placeholder="移动到分组…" onChange={value=>{const target=groups.find(g=>g.key===value);if(target)onMove(task.id,group,target)}} options={targets.map(g=>({value:g.key,label:g.title}))}/></div>}
         </div>
       })}</div>
       {group.target&&canAdd?<button className="board-add" type="button" onClick={()=>onAdd(group)}><Plus size={15}/>添加任务</button>:group.tasks.length===0?<p className="board-column-empty">暂无任务</p>:null}

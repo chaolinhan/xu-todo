@@ -14,6 +14,7 @@ import { CalendarPreview } from './components/CalendarPreview'
 import { TaskBoard } from './components/TaskBoard'
 import { SectionManager } from './components/SectionManager'
 import { TaskViewToolbar } from './components/TaskViewToolbar'
+import { Select } from './components/Select'
 import { defaultTaskView, defaultsForGroup, groupTasksForView, moveTaskToGroup, removeSection, reorderSection, validSectionId } from './lib/grouping'
 import { recordActivity, removeLabel, updateLabel } from './lib/activity'
 import { compileFilter } from './lib/filters'
@@ -452,7 +453,7 @@ export default function App() {
           <div className="topbar-actions">
             {!online && <span className="offline-badge"><CloudOff size={14} /> 离线</span>}
             <button className="view-options-trigger" type="button" aria-expanded={viewOptionsOpen} onClick={() => setViewOptionsOpen(!viewOptionsOpen)}><SlidersHorizontal size={15} /> 视图</button>
-            {viewOptionsOpen && <div className="view-options" role="group" aria-label="视图选项"><strong>显示与排序</strong><label><input type="checkbox" checked={showCompleted} onChange={e => changePreferences({showCompleted:e.target.checked})} /> 显示已完成任务</label><label><input type="checkbox" checked={compact} onChange={e => changePreferences({compact:e.target.checked})} /> 紧凑列表</label><label>排序<select aria-label="任务排序" value={sortMode} onChange={e => changePreferences({sortMode:e.target.value as 'date' | 'priority'})}><option value="date">日期优先</option><option value="priority">优先级优先</option></select></label><button type="button" className="text-button" onClick={() => setViewOptionsOpen(false)}>完成</button></div>}
+            {viewOptionsOpen && <div className="view-options" role="group" aria-label="视图选项"><strong>显示与排序</strong><label><input type="checkbox" checked={showCompleted} onChange={e => changePreferences({showCompleted:e.target.checked})} /> 显示已完成任务</label><label><input type="checkbox" checked={compact} onChange={e => changePreferences({compact:e.target.checked})} /> 紧凑列表</label><div className="view-sort-control"><span>排序</span><Select compact label="任务排序" value={sortMode} onChange={value=>changePreferences({sortMode:value as 'date' | 'priority'})} options={[{value:'date',label:'日期优先'},{value:'priority',label:'优先级优先'}]}/></div><button type="button" className="text-button" onClick={() => setViewOptionsOpen(false)}>完成</button></div>}
           </div>
         </header>
 

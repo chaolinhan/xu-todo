@@ -3,6 +3,8 @@ import { useMemo, useRef, useState } from 'react'
 import type { AppData, Priority, RecurrenceUnit, Task, TaskDraft } from '../types'
 import { createRecurrenceRule } from '../lib/recurrence'
 import { DateTimePicker } from './DateTimePicker'
+import { PrioritySelect } from './PrioritySelect'
+import { Select } from './Select'
 import { fromDateTimeLocal, toDateTimeLocal } from '../lib/task-utils'
 
 interface TaskEditorProps {
@@ -134,47 +136,19 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
               <DateTimePicker label="提醒时间" value={reminderAt} onChange={changeReminderAt} />
               <small className="field-hint">默认与截止时间相同，可修改或清空</small>
             </div>
-            <label className="editor-field">
+            <div className="editor-field">
               <span><Folder size={16} /> 所属项目</span>
-              <select value={projectId} onChange={(event) => {setProjectId(event.target.value);setSectionId('')}}>
-                <option value="inbox">收件箱</option>
-                {data.projects.map((project) => (
-                  <option key={project.id} value={project.id}>{project.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="editor-field"><span><Folder size={16}/>所属版块</span><select aria-label="所属版块" value={sectionId} onChange={e=>setSectionId(e.target.value)}><option value="">未分组</option>{data.sections?.filter(s=>s.projectId===projectId).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-            <fieldset className="editor-field priority-field">
-              <legend><Flag size={16} /> 优先级</legend>
-              <div className="priority-options">
-                {([1, 2, 3, 4] as Priority[]).map((value) => (
-                  <button
-                    className={`priority-option p${value} ${priority === value ? 'is-selected' : ''}`}
-                    type="button"
-                    key={value}
-                    onClick={() => setPriority(value)}
-                  >
-                    P{value}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+              <Select label="所属项目" value={projectId} onChange={value => {setProjectId(value);setSectionId('')}} options={[{value:'inbox',label:'收件箱'},...data.projects.map(project=>({value:project.id,label:project.name}))]} />
+            </div>
+            <div className="editor-field"><span><Folder size={16}/>所属版块</span><Select label="所属版块" value={sectionId} onChange={setSectionId} options={[{value:'',label:'未分组'},...(data.sections??[]).filter(s=>s.projectId===projectId).map(s=>({value:s.id,label:s.name}))]} /></div>
+            <div className="editor-field priority-field">
+              <span><Flag size={16} /> 优先级</span>
+              <PrioritySelect value={priority} onChange={setPriority} />
+            </div>
             <fieldset className="editor-field recurrence-field">
               <legend><Repeat2 size={16} /> 重复</legend>
               <div className="recurrence-controls">
-                <select
-                  aria-label="重复规则"
-                  value={recurrenceChoice}
-                  onChange={(event) => setRecurrenceChoice(event.target.value as RecurrenceChoice)}
-                >
-                  <option value="none">不重复</option>
-                  <option value="day">每天</option>
-                  <option value="weekday">每个工作日</option>
-                  <option value="week">每周</option>
-                  <option value="month">每月</option>
-                  <option value="year">每年</option>
-                  <option value="custom">自定义间隔</option>
-                </select>
+                <Select label="重复规则" value={recurrenceChoice} onChange={value=>setRecurrenceChoice(value as RecurrenceChoice)} options={[{value:'none',label:'不重复'},{value:'day',label:'每天'},{value:'weekday',label:'每个工作日'},{value:'week',label:'每周'},{value:'month',label:'每月'},{value:'year',label:'每年'},{value:'custom',label:'自定义间隔'}]} />
                 {recurrenceChoice === 'custom' && (
                   <span className="custom-recurrence">
                     <span>每</span>
@@ -187,15 +161,7 @@ export function TaskEditor({ data, task, defaultProjectId, onClose, onSave, onDe
                       value={customInterval}
                       onChange={(event) => setCustomInterval(event.target.value)}
                     />
-                    <select
-                      aria-label="重复单位"
-                      value={customUnit}
-                      onChange={(event) => setCustomUnit(event.target.value as RecurrenceUnit)}
-                    >
-                      <option value="day">天</option>
-                      <option value="week">周</option>
-                      <option value="month">个月</option>
-                    </select>
+                    <Select label="重复单位" value={customUnit} onChange={value=>setCustomUnit(value as RecurrenceUnit)} options={[{value:'day',label:'天'},{value:'week',label:'周'},{value:'month',label:'个月'}]} />
                   </span>
                 )}
               </div>

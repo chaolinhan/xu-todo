@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { ChevronDown, Flag, Hash, Repeat2, Tag, X } from 'lucide-react'
+import { Hash, Repeat2, Tag, X } from 'lucide-react'
 import { DateTimePicker } from './DateTimePicker'
+import { PrioritySelect } from './PrioritySelect'
+import { Select } from './Select'
 import { parseQuickTask } from '../lib/quick-add'
 import { createRecurrenceRule, describeRecurrence } from '../lib/recurrence'
 import { toDateTimeLocal } from '../lib/task-utils'
@@ -26,13 +28,13 @@ export function QuickAdd({ data, defaultProjectId, defaultDate, defaults, modal 
     <textarea aria-label="任务描述" placeholder="描述" value={description} onChange={e => setDescription(e.target.value)} rows={1} maxLength={1000} />
     <div className="quick-controls">
       <DateTimePicker compact label="快速设置日期" value={toDateTimeLocal(draft.dueAt)} onChange={value => setManualDate(value ? new Date(value).toISOString() : '')} />
-      <label className={`quick-control p${draft.priority}`}><Flag size={14} /><select aria-label="快速设置优先级" value={draft.priority} onChange={e => setManualPriority(Number(e.target.value))}>{[4, 1, 2, 3].map(p => <option value={p} key={p}>{p === 4 ? '优先级' : `优先级 ${p}`}</option>)}</select></label>
+      <PrioritySelect compact label="快速设置优先级" value={draft.priority} onChange={setManualPriority} />
       {draft.recurrence && <span className="quick-control"><Repeat2 size={14} />{describeRecurrence(draft.recurrence)}</span>}
       {draft.labelIds.map(id => <span className="quick-control" key={id}><Tag size={13} />{data.labels.find(l => l.id === id)?.name}</span>)}
     </div>
     {parsed.recognized.length > 0 && <div className="recognized-tokens" aria-label="已识别内容"><span>已识别</span>{[...new Set(parsed.recognized)].map(token => <button key={token} type="button" title="点击保留为普通标题文字" onClick={() => setIgnored(current => [...current, token])}>{token}<X size={11} /></button>)}</div>}
     {parsed.warnings.length > 0 && <p className="parse-warning" role="status">{parsed.warnings.join('；')}</p>}
-    <footer className="quick-footer"><label className="quick-project"><Hash size={15} /><select aria-label="快速设置项目" value={draft.projectId} onChange={e => { setProject(e.target.value); setText(current => current.split(/\s+/u).filter(token => !parsed.recognized.filter(t => t.startsWith('#')).includes(token)).join(' ')) }}><option value="inbox">收件箱</option>{data.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select><ChevronDown size={12} /></label><div><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit" disabled={!draft.title.trim()}>添加任务</button></div></footer>
+    <footer className="quick-footer"><Select compact variant="quiet" className="quick-project" label="快速设置项目" value={draft.projectId} options={[{value:'inbox',label:'收件箱',icon:<Hash size={15}/>},...data.projects.map(p=>({value:p.id,label:p.name,icon:<Hash size={15}/>}))]} onChange={value => { setProject(value); setText(current => current.split(/\s+/u).filter(token => !parsed.recognized.filter(t => t.startsWith('#')).includes(token)).join(' ')) }} /><div><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit" disabled={!draft.title.trim()}>添加任务</button></div></footer>
     <p className="quick-hint"><kbd>Enter</kbd> 添加 · <kbd>Esc</kbd> 关闭 · #项目 · @标签 · p1–p4</p>
   </form>
   return modal ? <div className="dialog-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}><section className="quick-modal" role="dialog" aria-modal="true" aria-label="快速添加任务">{content}</section></div> : content
